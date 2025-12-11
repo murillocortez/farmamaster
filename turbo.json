@@ -14,28 +14,17 @@
                 "!.next/cache/**"
             ]
         },
-        "lint": {
-            "outputs": []
-        },
+        "lint": {},
+        "type-check": {},
         "dev": {
             "cache": false,
             "persistent": true
         },
         "test": {
-            "dependsOn": [
-                "build"
-            ],
             "outputs": [
                 "coverage/**"
             ],
-            "inputs": [
-                "src/**/*.tsx",
-                "src/**/*.ts",
-                "test/**/*.ts"
-            ]
-        },
-        "clean": {
-            "cache": false
+            "dependsOn": []
         }
     }
 }

@@ -23,7 +23,18 @@ const RequestSchema = z.object({
     adminName: z.string().min(3),
 })
 
+// Structured Logger Implementation
+const logger = {
+    info: (msg: string, ctx: any = {}) => console.log(JSON.stringify({ level: 'INFO', msg, ctx, timestamp: new Date().toISOString() })),
+    error: (msg: string, ctx: any = {}) => console.error(JSON.stringify({ level: 'ERROR', msg, ctx, timestamp: new Date().toISOString() })),
+    warn: (msg: string, ctx: any = {}) => console.warn(JSON.stringify({ level: 'WARN', msg, ctx, timestamp: new Date().toISOString() }))
+};
+
 Deno.serve(async (req) => {
+    const requestId = crypto.randomUUID();
+    const startTime = performance.now();
+    logger.info('Request started', { requestId, method: req.method, url: req.url });
+
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders })
     }
@@ -31,13 +42,7 @@ Deno.serve(async (req) => {
     try {
         const supabaseClient = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-            {
-                auth: {
-                    autoRefreshToken: false,
-                    persistSession: false
-                }
-            }
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         )
 
         // 1. Validation

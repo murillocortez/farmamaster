@@ -1,0 +1,19 @@
+name: Deploy Edge Functions
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'infra/supabase/functions/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase link --project-ref nezmauiwtoersiwtpjmd --password ${{ secrets.SUPABASE_DB_PASSWORD }}
+      - run: supabase functions deploy --no-verify-jwt
+        working-directory: infra/supabase

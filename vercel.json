@@ -1,0 +1,40 @@
+{
+    "version": 2,
+    "builds": [
+        {
+            "src": "apps/master/package.json",
+            "use": "@vercel/static-build",
+            "config": {
+                "distDir": "dist"
+            }
+        },
+        {
+            "src": "apps/admin/package.json",
+            "use": "@vercel/static-build",
+            "config": {
+                "distDir": "dist"
+            }
+        },
+        {
+            "src": "apps/store/package.json",
+            "use": "@vercel/static-build",
+            "config": {
+                "distDir": "dist"
+            }
+        }
+    ],
+    "rewrites": [
+        {
+            "source": "/master(.*)",
+            "destination": "/apps/master/$1"
+        },
+        {
+            "source": "/admin(.*)",
+            "destination": "/apps/admin/$1"
+        },
+        {
+            "source": "/store(.*)",
+            "destination": "/apps/store/$1"
+        }
+    ]
+}

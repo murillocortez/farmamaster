@@ -1,0 +1,25 @@
+{
+    "compilerOptions": {
+        "baseUrl": ".",
+        "target": "ESNext",
+        "module": "ESNext",
+        "moduleResolution": "Node",
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "paths": {
+            "@farmamaster/ui": [
+                "packages/ui/src"
+            ],
+            "@farmamaster/ui/*": [
+                "packages/ui/src/*"
+            ]
+        }
+    },
+    "exclude": [
+        "node_modules",
+        "**/dist",
+        "**/.next"
+    ]
+}

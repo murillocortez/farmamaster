@@ -161,22 +161,23 @@ export const Settings: React.FC = () => {
             // Generate Random Password
             const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
 
-            // WORKAROUND: Client-side simulation of user creation with manual credential distribution
-            alert(`USUÁRIO CRIADO (Simulação):\n\nNome: ${newUser.name}\nEmail: ${newUser.email}\nSenha Temporária: ${tempPassword}\n\nATENÇÃO: Copie esta senha agora! O usuário deve usar "Esqueci minha senha" se perder este acesso.`);
-
-            const mockUser: User = {
-                id: Math.random().toString(),
-                name: newUser.name,
+            await db.inviteUser({
                 email: newUser.email,
+                name: newUser.name,
                 role: newUser.role,
-                avatar: undefined
-            };
-            setUsers([...users, mockUser]);
+                password: tempPassword
+            });
+
+            alert(`USUÁRIO CRIADO COM SUCESSO!\n\nNome: ${newUser.name}\nEmail: ${newUser.email}\nSenha Temporária: ${tempPassword}\n\nEnvie esta senha para o usuário.`);
+
+            // Refresh users list
+            const u = await db.getUsers();
+            setUsers(u);
             setNewUser({ name: '', email: '', role: Role.OPERADOR });
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error adding user:', error);
-            alert('Erro ao adicionar usuário.');
+            alert('Erro ao adicionar usuário: ' + (error.message || error));
         } finally {
             setSaving(false);
         }

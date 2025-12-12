@@ -751,6 +751,26 @@ class DBService {
     return url;
   }
 
+  async inviteUser(data: { email: string; password: string; name: string; role: Role }): Promise<void> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    const functionsUrl = import.meta.env.VITE_SUPABASE_URL || 'https://nezmauiwtoersiwtpjmd.supabase.co';
+
+    const response = await fetch(`${functionsUrl}/functions/v1/invite-user`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'Failed to invite user');
+    }
+  }
+
   // User Management
   async getUsers(): Promise<User[]> {
     const { data, error } = await supabase

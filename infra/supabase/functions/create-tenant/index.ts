@@ -151,7 +151,17 @@ Deno.serve(async (req) => {
 
         if (uErr) {
             console.error('Failed to create auth user, rolling back tenant', uErr)
+            // Rollback: Delete the partially created tenant
             await supabaseClient.from('tenants').delete().eq('id', tenantRow.id)
+
+            // Check for duplicate email
+            if (uErr.message?.includes("already registered") || uErr.message?.includes("already confirmed")) {
+                return new Response(
+                    JSON.stringify({ error: "Este e-mail já está cadastrado no sistema. Tente outro." }),
+                    { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                )
+            }
+
             throw new Error(`Auth Error: ${uErr.message}`)
         }
 

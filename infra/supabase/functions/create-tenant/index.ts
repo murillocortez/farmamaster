@@ -166,7 +166,6 @@ Deno.serve(async (req) => {
 
         const { error: pErr } = await supabaseClient.from('profiles').upsert({
             id: userId,
-            email: adminEmail,
             full_name: adminName,
             role: 'CEO',
             tenant_id: tenantRow.id,

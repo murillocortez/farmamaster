@@ -164,7 +164,7 @@ Deno.serve(async (req) => {
         const hashArray = Array.from(new Uint8Array(hash));
         const passwordHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-        const { error: pErr } = await supabaseClient.from('profiles').insert({
+        const { error: pErr } = await supabaseClient.from('profiles').upsert({
             id: userId,
             email: adminEmail,
             full_name: adminName,

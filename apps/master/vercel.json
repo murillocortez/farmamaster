@@ -1,7 +1,7 @@
 {
-    "buildCommand": "cd ../.. && npx turbo run build --filter=klyver-master",
-    "outputDirectory": "dist",
     "framework": "vite",
+    "buildCommand": "tsc && vite build",
+    "outputDirectory": "dist",
     "rewrites": [
         {
             "source": "/(.*)",

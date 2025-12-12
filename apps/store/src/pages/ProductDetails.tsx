@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
+import { useTenant } from '../context/TenantContext'; // Import useTenant
 import { db } from '../services/dbService';
 import { Product } from '../types';
 import {
@@ -14,6 +15,7 @@ export const ProductDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { addToCart, user, setIsLoginModalOpen } = useStore();
+  const { tenant } = useTenant(); // Get Tenant
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
@@ -65,12 +67,12 @@ export const ProductDetails: React.FC = () => {
   };
 
   useEffect(() => {
-    if (id) {
+    if (id && tenant) {
       fetchProduct(id);
-      db.getSettings().then(setSettings);
+      db.getSettings(tenant.id).then(setSettings);
       window.scrollTo(0, 0);
     }
-  }, [id]);
+  }, [id, tenant]);
 
   const fetchProduct = async (productId: string) => {
     setLoading(true);
@@ -79,8 +81,10 @@ export const ProductDetails: React.FC = () => {
       setProduct(data);
 
       // Fetch related products (mock logic: fetch all and slice for now, ideally filter by category)
-      const allProducts = await db.getProducts();
-      setRelatedProducts(allProducts.filter(p => p.id !== productId).slice(0, 4));
+      if (tenant) {
+        const allProducts = await db.getProducts(tenant.id);
+        setRelatedProducts(allProducts.filter(p => p.id !== productId).slice(0, 4));
+      }
     } catch (error) {
       console.error('Error fetching product:', error);
     } finally {

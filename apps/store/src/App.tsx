@@ -128,13 +128,30 @@ const AppContent = () => {
 
 const RootRedirect: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const tenant = searchParams.get('tenant');
+  const tenantParam = searchParams.get('tenant');
+
+  // Calculate Subdomain
+  const hostname = window.location.hostname;
+  const parts = hostname.split('.');
+  let subdomainSlug = '';
+
+  // Logic: slug.domain.com or slug.localhost
+  if (parts.length >= 2) {
+    const sub = parts[0];
+    // Common reserved subdomains or IP check
+    const isIgnored = ['www', 'app', 'admin', 'store', 'market', 'api'].includes(sub);
+    const isIp = /^[0-9]+$/.test(sub);
+
+    if (!isIgnored && !isIp) {
+      subdomainSlug = sub;
+    }
+  }
+
   // @ts-ignore
   const defaultTenant = import.meta.env.VITE_DEFAULT_TENANT_SLUG_STORE || 'farma-vida';
-  if (tenant) {
-    return <Navigate to={`/${tenant}`} replace />;
-  }
-  return <Navigate to={`/${defaultTenant}`} replace />;
+  const finalSlug = tenantParam || subdomainSlug || defaultTenant;
+
+  return <Navigate to={`/${finalSlug}`} replace />;
 };
 
 export default function App() {

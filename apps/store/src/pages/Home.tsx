@@ -13,6 +13,7 @@ export const Home: React.FC = () => {
   const searchQuery = searchParams.get('q');
   const [activeCategory, setActiveCategory] = useState('todos');
   const { addToCart, user } = useStore();
+  const { tenant } = useTenant();
   const [products, setProducts] = useState<Product[]>([]);
   const [offers, setOffers] = useState<DailyOffer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,9 +21,11 @@ export const Home: React.FC = () => {
   const [settings, setSettings] = useState<any>(null);
 
   useEffect(() => {
-    fetchData();
-    db.getSettings().then(setSettings);
-  }, []);
+    if (tenant) {
+      fetchData();
+      db.getSettings(tenant.id).then(setSettings);
+    }
+  }, [tenant]);
 
   // Carousel Auto-Rotation
   useEffect(() => {
@@ -34,11 +37,19 @@ export const Home: React.FC = () => {
   }, [offers.length]);
 
   const fetchData = async () => {
+    if (!tenant) return;
     try {
       setLoading(true);
       const [productsResponse, offersResponse] = await Promise.all([
-        supabase.from('products').select('*').eq('status', 'active'),
-        supabase.from('daily_offers').select('*').eq('active', true).order('created_at', { ascending: false })
+        supabase.from('products')
+          .select('*')
+          .eq('status', 'active')
+          .eq('tenant_id', tenant.id),
+        supabase.from('daily_offers')
+          .select('*')
+          .eq('active', true)
+          .eq('tenant_id', tenant.id)
+          .order('created_at', { ascending: false })
       ]);
 
       if (productsResponse.error) throw productsResponse.error;

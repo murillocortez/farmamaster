@@ -160,9 +160,9 @@ const App: React.FC = () => {
               <Route path="customers/:id" element={<ProtectedRoute requiredPermission="customers"><CustomerProfile /></ProtectedRoute>} />
               <Route path="reports" element={<ProtectedRoute requiredPermission="reports"><Reports /></ProtectedRoute>} />
               <Route path="settings" element={<ProtectedRoute requiredPermission="settings"><Settings /></ProtectedRoute>} />
-              <Route path="billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
+              {/* <Route path="billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} /> */}
               <Route path="daily-offers" element={<ProtectedRoute requiredPermission="daily-offers"><DailyOffersPage /></ProtectedRoute>} />
-              <Route path="plans" element={<ProtectedRoute><PlansPage /></ProtectedRoute>} />
+              {/* <Route path="plans" element={<ProtectedRoute><PlansPage /></ProtectedRoute>} /> */}
               <Route path="admin/cmed-monitor" element={<ProtectedRoute><CMEDMonitor /></ProtectedRoute>} />
               <Route path="admin/pdv" element={<ProtectedRoute><PDV /></ProtectedRoute>} />
 

@@ -156,15 +156,12 @@ export const db = {
 
 
     async getOrders(customerId: string) {
-        const { data, error } = await supabase
-            .from('orders')
-            .select('*, order_items(*, products(*))')
-            .eq('customer_id', customerId)
-            .gte('created_at', new Date(new Date().setMonth(new Date().getMonth() - 6)).toISOString())
-            .order('created_at', { ascending: false });
+        // @ts-ignore
+        const { data, error } = await supabase.rpc('get_customer_orders', { p_customer_id: customerId });
 
         if (error) throw error;
-        return data.map((o: any) => ({
+
+        return (data as any[]).map((o: any) => ({
             id: o.id,
             total: o.total_amount,
             status: o.status,
@@ -172,15 +169,7 @@ export const db = {
             address: o.delivery_address,
             paymentMethod: o.payment_method,
             deliveryMethod: o.delivery_method,
-            items: o.order_items.map((i: any) => ({
-                id: i.product_id,
-                quantity: i.quantity,
-                price: i.price_at_purchase,
-                name: i.products?.name || 'Produto indisponível',
-                image: i.products?.images?.[0] || '',
-                category: i.products?.category || '',
-                description: i.products?.description || ''
-            }))
+            items: o.items || [] // Already formatted in RPC
         }));
     },
 
@@ -190,53 +179,51 @@ export const db = {
             .select('product_id')
             .eq('user_id', userId);
 
-        if (error) throw error;
+        // Try direct first (if allowed), if fails, user RPC logic? 
+        // Actually, just use RPC to be safe, but simple ID list might work if RLS allows.
+        // But RLS on favorites is restrictive.
+        // Let's use get_customer_favorites and map IDs.
+
+        if (error) {
+            // Fallback to RPC
+            // @ts-ignore
+            const { data: rpcData, error: rpcError } = await supabase.rpc('get_customer_favorites', { p_user_id: userId });
+            if (rpcError) throw rpcError;
+            return (rpcData as any[]).map(d => d.product_id);
+        }
         return data.map((f: any) => f.product_id);
     },
 
     async getFavoriteProducts(userId: string): Promise<Product[]> {
-        const { data, error } = await supabase
-            .from('favorites')
-            .select('product_id, products(*, product_batches(*))')
-            .eq('user_id', userId);
+        // @ts-ignore
+        const { data, error } = await supabase.rpc('get_customer_favorites', { p_user_id: userId });
 
         if (error) throw error;
 
-        return data.map((item: any) => {
-            const p = item.products;
+        return (data as any[]).map((item: any) => {
+            const p = item.product;
             return {
                 id: p.id,
                 name: p.name,
                 description: p.description,
                 price: p.price,
                 promotionalPrice: p.promotional_price,
-                image: p.images?.[0] || '',
+                image: p.images?.[0] || '', // Handle JSON array logic if needed, but RPC does p.images->0
                 category: p.category,
                 requiresPrescription: p.requires_prescription,
-                stock: p.product_batches?.reduce((sum: number, b: any) => sum + b.quantity, 0) || 0
+                stock: p.stock_sum || 0 // Calculated in RPC
             };
         });
     },
 
     async toggleFavorite(userId: string, productId: string): Promise<{ favorited: boolean }> {
-        const { data: exists } = await supabase
-            .from('favorites')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('product_id', productId)
-            .maybeSingle();
+        // @ts-ignore
+        const { data, error } = await supabase.rpc('toggle_customer_favorite', {
+            p_user_id: userId,
+            p_product_id: productId
+        });
 
-        if (exists) {
-            await supabase
-                .from('favorites')
-                .delete()
-                .eq('id', exists.id);
-            return { favorited: false };
-        } else {
-            await supabase
-                .from('favorites')
-                .insert({ user_id: userId, product_id: productId });
-            return { favorited: true };
-        }
+        if (error) throw error;
+        return { favorited: data as boolean };
     }
 };

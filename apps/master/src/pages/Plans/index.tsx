@@ -62,16 +62,47 @@ export const Plans: React.FC = () => {
 
     try {
       setLoading(true);
-      const startCode = editingPlan.code || editingPlan.name?.toLowerCase().replace(/\s+/g, '-') || 'plan-' + Math.random().toString(36).substr(2, 5);
+
+      // Ensure numeric values
+      const priceMonth = parseFloat(String(editingPlan.price_month || 0));
+      const priceYear = parseFloat(String(editingPlan.price_year || 0));
+
+      // Construct features JSON
+      let featuresJSON = editingPlan.features;
+
+      // If it exists but is just an array, wrap it in object structure
+      if (Array.isArray(featuresJSON)) {
+        featuresJSON = { display_list: featuresJSON };
+      }
+      // If it's a string (legacy/error case), try to split
+      else if (typeof featuresJSON === 'string') {
+        featuresJSON = { display_list: String(featuresJSON).split('\n').filter(Boolean) };
+      }
+      // If null/undefined
+      else if (!featuresJSON) {
+        featuresJSON = { display_list: [] };
+      }
+
+      // Ensure display_list exists if it's an object
+      if (typeof featuresJSON === 'object' && !(featuresJSON as any).display_list) {
+        (featuresJSON as any).display_list = [];
+      }
 
       const planData: any = {
         name: editingPlan.name,
-        code: startCode,
-        price_month: Number(editingPlan.price_month),
-        price_year: Number(editingPlan.price_year),
-        limits: editingPlan.limits,
-        features: Array.isArray(editingPlan.features) ? editingPlan.features : String(editingPlan.features).split('\n').map(s => s.trim()).filter(Boolean)
+        code: editingPlan.code || editingPlan.name?.toLowerCase().replace(/\s+/g, '-') || `plan-${Date.now()}`,
+        price_month: priceMonth,
+        price_year: priceYear,
+        limits: {
+          max_users: Number((editingPlan.limits as any)?.max_users || 0),
+          max_products: Number((editingPlan.limits as any)?.max_products || 0),
+          max_tenants: Number((editingPlan.limits as any)?.max_tenants || 1),
+        },
+        features: featuresJSON,
+        is_active: true
       };
+
+      console.log('Saving plan payload:', planData);
 
       if ((editingPlan as any).id) {
         await planService.update((editingPlan as any).id, planData);
@@ -81,9 +112,12 @@ export const Plans: React.FC = () => {
 
       setIsModalOpen(false);
       loadPlans();
-    } catch (error) {
-      console.error(error);
-      alert('Erro ao salvar plano. Verifique os dados.');
+      // Use a toast ideally, but alert is fine for now as requested for feedback
+      alert('Plano salvo com sucesso!');
+    } catch (error: any) {
+      console.error('Erro ao salvar plano:', error);
+      const msg = error.message || error.error_description || JSON.stringify(error);
+      alert(`Erro ao salvar plano: ${msg}`);
     } finally {
       setLoading(false);
     }

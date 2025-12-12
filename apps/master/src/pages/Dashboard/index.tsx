@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
   LineChart, Line
 } from 'recharts';
 import { TrendingUp, Users, AlertTriangle, DollarSign } from 'lucide-react';
-import { ANALYTICS_DATA, MOCK_TENANTS } from '../../constants';
+import { ANALYTICS_DATA } from '../../constants';
+import { tenantService } from '../../services/tenantService';
 
 const StatCard = ({ title, value, subtext, icon: Icon, colorClass }: any) => (
   <div className="bg-white p-6 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] border border-slate-100 hover:shadow-lg transition-all duration-300">
@@ -27,8 +28,25 @@ const StatCard = ({ title, value, subtext, icon: Icon, colorClass }: any) => (
 );
 
 export const Dashboard: React.FC = () => {
-  const activeTenants = MOCK_TENANTS.filter(t => t.status === 'active').length;
-  const blockedTenants = MOCK_TENANTS.filter(t => t.status === 'blocked').length;
+  const [activeTenants, setActiveTenants] = useState(0);
+  const [blockedTenants, setBlockedTenants] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const tenants = await tenantService.getAll();
+        setActiveTenants(tenants.filter(t => t.status === 'active').length);
+        setBlockedTenants(tenants.filter(t => t.status === 'blocked').length);
+      } catch (error) {
+        console.error('Failed to fetch dashboard stats:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
+
   const totalMRR = ANALYTICS_DATA[ANALYTICS_DATA.length - 1].mrr;
 
   return (

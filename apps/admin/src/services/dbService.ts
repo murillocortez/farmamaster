@@ -672,6 +672,12 @@ class DBService {
     if (error) throw error;
   }
 
+  // Auth
+  async updatePassword(password: string): Promise<void> {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) throw error;
+  }
+
   // User Management
   async getUsers(): Promise<User[]> {
     const { data, error } = await supabase

@@ -89,6 +89,7 @@ export const Settings: React.FC = () => {
     const [showApiToken, setShowApiToken] = useState(false);
     const [showPasswordPolicy, setShowPasswordPolicy] = useState(false);
     const [showAuditLogs, setShowAuditLogs] = useState(false);
+    const [showResetPassword, setShowResetPassword] = useState(false);
 
     useEffect(() => {
         const load = async () => {
@@ -1009,6 +1010,16 @@ export const Settings: React.FC = () => {
                                             </div>
                                             <ChevronRight size={16} className="text-gray-300 group-hover:text-gray-500" />
                                         </button>
+                                        <button
+                                            onClick={() => setShowResetPassword(true)}
+                                            className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 flex items-center justify-between group transition-colors"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <Key size={18} className="text-gray-400 group-hover:text-blue-600" />
+                                                <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">Redefinir Minha Senha</span>
+                                            </div>
+                                            <ChevronRight size={16} className="text-gray-300 group-hover:text-gray-500" />
+                                        </button>
                                     </div>
                                 </section>
                             </div>
@@ -1266,7 +1277,62 @@ export const Settings: React.FC = () => {
                     </div>
                 </div>
             )}
-        </div>
+
+            {/* Reset Password Modal */}
+            {
+                showResetPassword && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200">
+                            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+                                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                                    <Key size={20} className="text-blue-600" /> Redefinir Minha Senha
+                                </h3>
+                                <button onClick={() => setShowResetPassword(false)} className="text-gray-400 hover:text-gray-600">
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <form onSubmit={async (e) => {
+                                e.preventDefault();
+                                const formData = new FormData(e.currentTarget);
+                                const password = formData.get('password') as string;
+                                const confirm = formData.get('confirm') as string;
+
+                                if (password !== confirm) {
+                                    alert('As senhas não conferem.');
+                                    return;
+                                }
+                                if (password.length < 6) {
+                                    alert('A senha deve ter no mínimo 6 caracteres.');
+                                    return;
+                                }
+
+                                try {
+                                    await db.updatePassword(password);
+                                    alert('Senha atualizada com sucesso! Você precisará fazer login novamente.');
+                                    setShowResetPassword(false);
+                                } catch (error: any) {
+                                    alert('Erro ao atualizar senha: ' + error.message);
+                                }
+                            }}>
+                                <div className="p-6 space-y-4">
+                                    <InputGroup label="Nova Senha" required>
+                                        <input name="password" type="password" className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20" />
+                                    </InputGroup>
+                                    <InputGroup label="Confirmar Nova Senha" required>
+                                        <input name="confirm" type="password" className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20" />
+                                    </InputGroup>
+                                </div>
+                                <div className="p-6 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex justify-end">
+                                    <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-blue-700 transition-colors">
+                                        Salvar Nova Senha
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )
+            }
+        </div >
     );
 };
 

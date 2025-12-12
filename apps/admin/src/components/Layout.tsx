@@ -225,7 +225,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           <SidebarSection title="Sistema" collapsed={isSidebarCollapsed}>
             <SidebarItem icon={Headphones} label="Suporte" path={p('/support')} active={isActive('support')} collapsed={isSidebarCollapsed} />
             <SidebarItem icon={Settings} label="Configurações" path={p('/settings')} active={isActive('settings')} collapsed={isSidebarCollapsed} />
-            <SidebarItem icon={CreditCard} label="Meu Plano" path={p('/plans')} active={isActive('plans')} collapsed={isSidebarCollapsed} />
+            <SidebarItem icon={CreditCard} label="Meu Plano" path={p('/billing')} active={isActive('billing')} collapsed={isSidebarCollapsed} />
           </SidebarSection>
         </nav>
 

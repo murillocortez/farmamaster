@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { AnalyticsSummary, AppNotification, AppSettings, Customer, DailyOffer, Order, OrderItem, OrderStatus, Product, ProductBatch, ProductCategory, Role, StorePlan, StoreSubscription, User, SalesDataPoint, HealthInsurancePlan } from '../types';
+import { AnalyticsSummary, AppNotification, AppSettings, Customer, DailyOffer, Order, OrderItem, OrderStatus, Product, ProductBatch, ProductCategory, Role, StorePlan, StoreSubscription, User, SalesDataPoint, HealthInsurancePlan, TenantSubscription } from '../types';
 import { whatsappService } from './whatsappService';
 
 // Helper to simulate async delay (optional, but keeping for compatibility if needed, though Supabase is async)
@@ -676,6 +676,79 @@ class DBService {
   async updatePassword(password: string): Promise<void> {
     const { error } = await supabase.auth.updateUser({ password });
     if (error) throw error;
+  }
+
+  // Billing (Multi-tenant)
+  async getTenantSubscription(): Promise<TenantSubscription | null> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const tenantId = user.user_metadata?.tenant_id;
+    if (!tenantId) return null;
+
+    const { data, error } = await supabase
+      .from('tenants')
+      .select('stripe_customer_id, stripe_subscription_id, subscription_status, plan_code, current_period_end, payment_provider')
+      .eq('id', tenantId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching subscription:', error);
+      return null; // Return null to handle gracefully
+    }
+
+    return data as TenantSubscription;
+  }
+
+  async createCheckoutSession(plan: string): Promise<string> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
+    // Check if VITE_SUPABASE_URL is defined, otherwise fallback or error
+    // In production this should differ, usually PROJECT_URL
+    // We assume the supabase client URL is the base, but functions reside on it.
+    // supabase.supabaseUrl is not public property in all versions, let's use the one imported if possible or hardcode / default
+    const functionsUrl = import.meta.env.VITE_SUPABASE_URL || 'https://nezmauiwtoersiwtpjmd.supabase.co'; // Fallback
+
+    const response = await fetch(`${functionsUrl}/functions/v1/billing-ops`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ action: 'create_checkout', plan })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'Failed to create checkout session');
+    }
+
+    const { url } = await response.json();
+    return url;
+  }
+
+  async createPortalSession(): Promise<string> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    const functionsUrl = import.meta.env.VITE_SUPABASE_URL || 'https://nezmauiwtoersiwtpjmd.supabase.co';
+
+    const response = await fetch(`${functionsUrl}/functions/v1/billing-ops`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ action: 'create_portal' })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'Failed to create portal session');
+    }
+
+    const { url } = await response.json();
+    return url;
   }
 
   // User Management

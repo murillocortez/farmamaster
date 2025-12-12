@@ -323,6 +323,15 @@ export interface StoreSubscription {
   plan?: StorePlan; // Joined
 }
 
+export interface TenantSubscription {
+  stripe_customer_id: string;
+  stripe_subscription_id: string;
+  subscription_status: string;
+  plan_code: string;
+  current_period_end: string;
+  payment_provider: string;
+}
+
 export interface Store {
   id: string;
   name: string;

@@ -29,6 +29,7 @@ const QuotationsPage = React.lazy(() => import('./pages/purchasing/QuotationsPag
 const PurchasesPage = React.lazy(() => import('./pages/purchasing/PurchasesPage').then(module => ({ default: module.PurchasesPage })));
 const FinancialPage = React.lazy(() => import('./pages/purchasing/FinancialPage').then(module => ({ default: module.FinancialPage })));
 const CashbackCRMPage = React.lazy(() => import('./pages/CashbackCRMPage').then(module => ({ default: module.CashbackCRMPage })));
+const Billing = React.lazy(() => import('./pages/Billing').then(module => ({ default: module.Billing })));
 
 import { Role } from './types';
 import { useRole } from './hooks/useRole';
@@ -159,6 +160,7 @@ const App: React.FC = () => {
               <Route path="customers/:id" element={<ProtectedRoute requiredPermission="customers"><CustomerProfile /></ProtectedRoute>} />
               <Route path="reports" element={<ProtectedRoute requiredPermission="reports"><Reports /></ProtectedRoute>} />
               <Route path="settings" element={<ProtectedRoute requiredPermission="settings"><Settings /></ProtectedRoute>} />
+              <Route path="billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
               <Route path="daily-offers" element={<ProtectedRoute requiredPermission="daily-offers"><DailyOffersPage /></ProtectedRoute>} />
               <Route path="plans" element={<ProtectedRoute><PlansPage /></ProtectedRoute>} />
               <Route path="admin/cmed-monitor" element={<ProtectedRoute><CMEDMonitor /></ProtectedRoute>} />

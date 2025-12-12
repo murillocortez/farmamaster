@@ -7,9 +7,7 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-    if (req.method === 'OPTIONS') {
-        return new Response('ok', { headers: corsHeaders });
-    }
+    if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
     try {
         const supabaseClient = createClient(
@@ -18,42 +16,40 @@ serve(async (req) => {
             { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
         );
 
-        // 1. Verify Caller (Admin/CEO)
+        // 1. Verify Caller
         const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
-
-        if (authError || !user) {
-            throw new Error('Unauthorized');
-        }
+        if (authError || !user) throw new Error('Unauthorized');
 
         const callerTenantId = user.user_metadata?.tenant_id;
         const callerRole = user.user_metadata?.role;
 
-        if (!callerTenantId) {
-            throw new Error('Caller has no tenant_id');
-        }
+        // Strict Validation
+        if (!callerTenantId) throw new Error('Security Violation: Caller has no tenant_id');
+        if (!['CEO', 'ADMIN'].includes(callerRole)) throw new Error('Permission denied');
 
-        if (!['CEO', 'ADMIN'].includes(callerRole)) {
-            throw new Error('Permission denied: Only CEO or ADMIN can invite users');
-        }
-
-        // 2. Parse Body
         const { email, password, name, role } = await req.json();
+        if (!email || !password || !name) throw new Error('Missing fields');
 
-        if (!email || !password || !name) {
-            throw new Error('Missing required fields: email, password, name');
-        }
-
-        // 3. Create User (Service Role)
         const supabaseAdmin = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         );
 
-        // Check if user exists (Optional, createUser handles it but returns error)
-        // We proceed to create.
+        let targetUserId = '';
+        let shouldUpdateAuth = false;
+
+        // 2. Check if User Exists
+        // Note: listUsers is expensive, but getUserByEmail logic is needed.
+        // admin.createUser fails if exists.
+
+        const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+        // This is bad for scale, but standard `getUserByEmail` isn't exposed directly in some SDK versions?
+        // Actually `admin.audit` or something?
+        // Let's try `createUser` first.
+
         const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-            email: email,
-            password: password,
+            email,
+            password,
             email_confirm: true,
             user_metadata: {
                 tenant_id: callerTenantId,
@@ -63,18 +59,52 @@ serve(async (req) => {
         });
 
         if (createError) {
-            throw createError;
+            // Logic: If user exists, check ownership
+            if (createError.message?.includes('registered')) { // "User already registered" message varies
+                // Need to find the user to check metadata
+                // We can use listUsers with filter? 
+                // Or just try to inviteUserByEmail which returns the user?
+                // No, let's search.
+                const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
+                const match = users.find(u => u.email === email);
+
+                if (!match) throw new Error('User conflict detected but could not resolve');
+
+                const existingTenant = match.user_metadata?.tenant_id;
+
+                if (existingTenant && existingTenant !== callerTenantId) {
+                    throw new Error(`This email is already associated with another pharmacy (Tenant: ${existingTenant}). Contact support.`);
+                }
+
+                // If no tenant or same tenant, we CLAIM/UPDATE
+                targetUserId = match.id;
+                shouldUpdateAuth = true;
+            } else {
+                throw createError;
+            }
+        } else {
+            targetUserId = newUser.user.id;
         }
 
-        if (!newUser.user) {
-            throw new Error('User creation failed');
+        // 3. Update Auth Metadata if reclaiming
+        if (shouldUpdateAuth) {
+            await supabaseAdmin.auth.admin.updateUserById(targetUserId, {
+                user_metadata: {
+                    tenant_id: callerTenantId, // Enforce current tenant
+                    role: role || 'OPERADOR',
+                    name: name
+                },
+                password: password // Reset password to what Admin provided?
+                // User asked: "O Admin... cria membros". Usually this implies setting password.
+                // If we reclaim, we reset password so the new Admin can give it to the user.
+            });
         }
 
-        // 4. Upsert Profile (Ensure tenant_id is strict)
+        // 4. Upsert Profile (Strict Enforcement)
         const { error: profileError } = await supabaseAdmin
             .from('profiles')
             .upsert({
-                id: newUser.user.id,
+                id: targetUserId,
                 tenant_id: callerTenantId,
                 email: email,
                 full_name: name,
@@ -82,26 +112,13 @@ serve(async (req) => {
                 status: 'active'
             });
 
-        if (profileError) {
-            // If profile fails, technically we should delete auth user to rollback, 
-            // but upsert shouldn't fail unless DB is down or constraint issue.
-            console.error('Profile creation error:', profileError);
-            throw new Error('Failed to create user profile: ' + profileError.message);
-        }
+        if (profileError) throw new Error('Profile creation failed: ' + profileError.message);
 
-        return new Response(JSON.stringify({
-            user: newUser.user,
-            message: 'User created successfully'
-        }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200,
+        return new Response(JSON.stringify({ success: true, userId: targetUserId }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
 
-    } catch (err) {
-        console.error(err);
-        return new Response(JSON.stringify({ error: err.message }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 400,
-        });
+    } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 });

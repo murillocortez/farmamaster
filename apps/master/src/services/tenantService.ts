@@ -160,68 +160,23 @@ export const tenantService = {
     },
 
     async delete(id: string): Promise<void> {
-        console.log(`Starting deep cleanup for tenant ${id}...`);
+        console.log(`Deleting tenant ${id} via Cascade...`);
+        // Rely on Database ON DELETE CASCADE for all related tables.
+        const { error, count } = await supabase
+            .from('tenants')
+            .delete()
+            .eq('id', id)
+            .select('*', { count: 'exact', head: true }); // select count to verify
 
-        // --- 0. PRE-FETCH IDS ---
-        const { data: products } = await supabase.from('products').select('id').eq('tenant_id', id);
-        // @ts-ignore
-        const productIds = products?.map(p => p.id) || [];
-
-        const { data: orders } = await supabase.from('orders').select('id').eq('tenant_id', id);
-        // @ts-ignore
-        const orderIds = orders?.map(o => o.id) || [];
-
-        // --- 1. CLEAN UP CHILD RECORDS ---
-
-        // Delete Product Batches
-        if (productIds.length > 0) {
-            // @ts-ignore
-            const { error: batchErr } = await supabase.from('product_batches').delete().in('product_id', productIds);
-            if (batchErr) throw new Error(`Falha ao limpar lotes: ${batchErr.message}`);
-        }
-
-        // Delete Order Items
-        if (orderIds.length > 0) {
-            // @ts-ignore
-            const { error: itemErr } = await supabase.from('order_items').delete().in('order_id', orderIds);
-            if (itemErr) throw new Error(`Falha ao limpar itens de pedido: ${itemErr.message}`);
-        }
-
-        // --- 2. LOGS & HISTORY ---
-        const tablesToDelete = [
-            'invoice_logs', 'crm_logs', 'whatsapp_notifications',
-            'price_history', 'restock_recommendations',
-            'invoices', 'daily_offers', 'crm_birthday', 'crm_vip',
-            'orders', // Orders can be deleted after items are gone
-            'products', // Products can be deleted after batches/items/offers are gone
-            'customers', 'health_insurance_plans',
-            'store_settings', 'fiscal_settings', 'cashback_settings',
-            'crm_campaigns', 'store_plans',
-            'support_tickets', 'profiles'
-        ];
-
-        for (const table of tablesToDelete) {
-            // @ts-ignore
-            const { error } = await supabase.from(table).delete().eq('tenant_id', id);
-            if (error) {
-                // Ignore "relation does not exist" if using a list, but these tables should exist.
-                // We throw to identify the blocker.
-                console.warn(`Failed to clear table ${table}`, error);
-                // We don't throw immediately on some tables to allow partial cleanup, 
-                // but for core tables like products/orders it matters.
-                if (['products', 'orders', 'profiles'].includes(table)) {
-                    throw new Error(`Falha ao limpar tabela ${table}: ${error.message}`);
-                }
-            }
-        }
-
-        console.log('Deep cleanup completed.');
-
-        // Finally, delete the tenant
-        const { error } = await supabase.from('tenants').delete().eq('id', id);
         if (error) {
             console.error("Final delete failed", error);
             throw error;
+        }
+
+        if (count === 0) {
+            console.warn(`Tentativa de deletar tenant ${id} retornou 0 linhas. Verifique se o ID existe ou se o RLS permitiu.`);
+        } else {
+            console.log(`Tenant ${id} deletado com sucesso (Cascade).`);
         }
     },
 

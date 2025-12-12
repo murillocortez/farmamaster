@@ -22,15 +22,15 @@ const isUUID = (str: string) => {
 // Helper to fetch tenant based on ID or Slug safely
 const fetchTenantSafe = async (identifier: string) => {
   let query = supabase.from('tenants').select('*');
-  
+
   if (isUUID(identifier)) {
     query = query.eq('id', identifier);
   } else {
     query = query.eq('slug', identifier);
   }
-  
+
   const { data, error } = await query.maybeSingle();
-  return { data, error };
+  return { data: data as any, error };
 };
 
 /**
@@ -64,7 +64,7 @@ export const apiGetLicenseStatus = async (tenantId: string): Promise<ApiResponse
   }
 
   const plan = PLANS.find(p => p.id === tenant.plan_code) || PLANS[0];
-  
+
   // Calculate fake billing date if missing (created + 30 days)
   let nextBilling = new Date();
   if (tenant.created_at) {

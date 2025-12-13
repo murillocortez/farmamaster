@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useTenant } from './TenantContext';
 import { CartItem, Product, User } from '../types';
 import { db } from '../services/dbService';
 
@@ -23,6 +24,7 @@ interface StoreContextType {
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { tenant } = useTenant();
   const [user, setUser] = useState<User | null>(() => {
     const stored = localStorage.getItem('farma_user');
     return stored ? JSON.parse(stored) : null;
@@ -50,7 +52,8 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const login = async (name: string, phone: string) => {
     try {
-      const customer = await db.loginOrRegister(name, phone);
+      if (!tenant?.slug) throw new Error('Store context missing');
+      const customer = await db.loginOrRegister(tenant.slug, name, phone);
       setUser(customer);
       setIsLoginModalOpen(false);
     } catch (error) {

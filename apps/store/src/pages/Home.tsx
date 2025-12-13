@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CATEGORIES } from '../constants';
 import { useStore } from '../context/StoreContext';
+import { useTenant } from '../context/TenantContext';
 import { ChevronLeft, ChevronRight, Plus, Crown } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../services/supabase';
@@ -23,7 +24,7 @@ export const Home: React.FC = () => {
   useEffect(() => {
     if (tenant) {
       fetchData();
-      db.getSettings(tenant.id).then(setSettings);
+      db.getSettings(tenant.slug).then(setSettings);
     }
   }, [tenant]);
 
@@ -40,42 +41,23 @@ export const Home: React.FC = () => {
     if (!tenant) return;
     try {
       setLoading(true);
-      const [productsResponse, offersResponse] = await Promise.all([
-        supabase.from('products')
-          .select('*')
-          .eq('status', 'active')
-          .eq('tenant_id', tenant.id),
-        supabase.from('daily_offers')
-          .select('*')
-          .eq('active', true)
-          .eq('tenant_id', tenant.id)
-          .order('created_at', { ascending: false })
+      const [productsData, offersData] = await Promise.all([
+        db.getProducts(tenant.slug),
+        db.getDailyOffers(tenant.slug)
       ]);
 
-      if (productsResponse.error) throw productsResponse.error;
-      if (offersResponse.error) throw offersResponse.error;
+      // db.getProducts already maps to Product interface
+      setProducts(productsData);
 
-      const mappedProducts: Product[] = productsResponse.data.map((p: any) => ({
-        id: p.id,
-        name: p.name,
-        description: p.description || '',
-        price: p.price,
-        promotionalPrice: p.promotional_price,
-        category: (p.category || 'Outros').toLowerCase(),
-        image: p.images?.[0] || 'https://via.placeholder.com/150',
-        requiresPrescription: p.requires_prescription
-      }));
-
-      const mappedOffers: DailyOffer[] = offersResponse.data.map((o: any) => ({
+      const mappedOffers: DailyOffer[] = (offersData as any[]).map((o: any) => ({
         id: o.id,
-        title: o.title,
+        title: o.title || 'Oferta', // Fallback as RPC might return raw
         subtitle: o.subtitle,
-        imageUrl: o.image_url,
+        imageUrl: o.image_url, // map snake_case from DB
         productId: o.product_id,
         active: o.active
       }));
 
-      setProducts(mappedProducts);
       setOffers(mappedOffers);
     } catch (error) {
       console.error('Error fetching data:', error);

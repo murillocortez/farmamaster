@@ -138,17 +138,20 @@ const RootRedirect: React.FC = () => {
   // Logic: slug.domain.com or slug.localhost
   if (parts.length >= 2) {
     const sub = parts[0];
-    // Common reserved subdomains or IP check
-    const isIgnored = ['www', 'app', 'admin', 'store', 'market', 'api'].includes(sub);
+
+    // ✅ Melhorado: Ignorar domínios Vercel automaticamente
+    const isVercelDomain = hostname.includes('.vercel.app');
+    const isCommonSubdomain = ['www', 'app', 'admin', 'store', 'market', 'api'].includes(sub);
     const isIp = /^[0-9]+$/.test(sub);
 
-    if (!isIgnored && !isIp) {
+    // Se não é Vercel, não é subdomínio comum e não é IP, usa como slug
+    if (!isVercelDomain && !isCommonSubdomain && !isIp) {
       subdomainSlug = sub;
     }
   }
 
   // @ts-ignore
-  const defaultTenant = import.meta.env.VITE_DEFAULT_TENANT_SLUG_STORE || 'farma-vida';
+  const defaultTenant = import.meta.env.VITE_DEFAULT_TENANT_SLUG_STORE || 'farmavida';
   const finalSlug = tenantParam || subdomainSlug || defaultTenant;
 
   return <Navigate to={`/${finalSlug}`} replace />;

@@ -3,19 +3,37 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../services/supabase';
 
-interface Tenant {
+// Interface baseada na view tenant_with_plan e colunas da tabela tenants
+export interface Tenant {
     id: string;
     slug: string;
     display_name: string;
     logo_url: string | null;
-    plan_code: string;
-    status: 'active' | 'suspended' | 'trial' | 'cancelled' | 'blocked' | 'past_due';
-    admin_base_url: string | null;
-    store_base_url: string | null;
-    whatsapp_number: string | null;
-    address: any;
-    social_links: any;
-    store_background_url?: string; // Optional visual
+    status: 'active' | 'suspended' | 'blocked' | 'past_due' | 'cancelled';
+    blocked_reason?: string;
+
+    // Contato / Endereço
+    whatsapp_number?: string;
+    address?: any; // jsonb
+    social_links?: any; // jsonb
+
+    // Configurações
+    store_base_url?: string;
+    admin_base_url?: string;
+
+    // Plano (Vindo do Join)
+    plan_name?: string;
+    plan_code_real?: string;
+    plan_limits?: any;
+    plan_features?: {
+        cashback?: boolean;
+        api_whatsapp?: boolean;
+        multi_store?: boolean;
+        // ...
+    };
+
+    // Legacy fields still present in table
+    plan_code?: string;
 }
 
 interface TenantContextType {
@@ -40,46 +58,24 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     useEffect(() => {
         const resolveSlug = () => {
-            // 1. Query Param (?tenant=slug) - Priority for Testing
             const querySlug = searchParams.get('tenant') || new URLSearchParams(window.location.search).get('tenant');
             if (querySlug) return querySlug;
-
-            // 2. Route Param (/loja/:slug)
             if (params.slug) return params.slug;
 
-            // 3. Subdomain (slug.domain.com)
             const hostname = window.location.hostname;
             const parts = hostname.split('.');
-            // Localhost support: slug.localhost (length 2 usually? or slug.localhost.com)
-            // Production: slug.farmamaster.com
-            // Exclude: www, app, admin, store (if main domain)
-
             if (parts.length >= 2) {
                 const sub = parts[0];
                 const isIgnored = ['www', 'app', 'admin', 'store', 'market'].includes(sub);
-                // If localhost, parts[1] is 'localhost'. slug.localhost works.
-                // If IP, usually 4 parts numeric.
                 const isIp = /^[0-9]+$/.test(sub);
-
-                if (!isIgnored && !isIp) {
-                    return sub;
-                }
+                if (!isIgnored && !isIp) return sub;
             }
-
-            // 4. Env Fallback (Dev Only)
             return import.meta.env.VITE_DEFAULT_TENANT_SLUG_STORE;
         };
 
         const slug = resolveSlug();
 
-        console.group('Store Tenant Resolution');
-        console.log('Hostname:', window.location.hostname);
-        console.log('Resolved Slug:', slug);
-        console.groupEnd();
-
         if (!slug) {
-            console.warn('No slug resolved. Store cannot load.');
-            setError('Loja não especificada.');
             setLoading(false);
             return;
         }
@@ -87,13 +83,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const fetchTenant = async () => {
             try {
                 setLoading(true);
-                // Now works because of "Public Active Tenants" policy
+
+                // ✅ HOTFIX: Corrigindo colunas da view tenant_with_plan
+                // A view usa tenant_slug e tenant_status (não slug/status)
                 const { data, error } = await (supabase as any)
-                    .from('tenants')
-                    .select('id, slug, display_name, logo_url, plan_code, status, store_base_url, whatsapp_number, address, social_links')
-                    .eq('slug', slug)
-                    // Ensure we only get ACTIVE stores (Policy enforces this, but explicit filter is good)
-                    .eq('status', 'active')
+                    .from('tenant_with_plan')
+                    .select('*')
+                    .eq('tenant_slug', slug)       // ✅ Coluna correta da view
+                    .eq('tenant_status', 'active') // ✅ Coluna correta da view
                     .maybeSingle();
 
                 if (error) throw error;
@@ -101,8 +98,26 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     throw new Error('Loja não encontrada ou inativa.');
                 }
 
-                console.log('Tenant Loaded:', data.display_name);
-                setTenant(data as unknown as Tenant);
+                // ✅ Mapear colunas da view para interface Tenant (retrocompatibilidade)
+                const mappedTenant: Tenant = {
+                    id: data.tenant_id,
+                    slug: data.tenant_slug,
+                    display_name: data.tenant_name,
+                    status: data.tenant_status,
+                    logo_url: data.logo_url,
+                    whatsapp_number: data.whatsapp_number,
+                    address: data.address,
+                    social_links: data.social_links,
+                    store_base_url: data.store_base_url,
+                    admin_base_url: data.admin_base_url,
+                    plan_name: data.plan_name,
+                    plan_code_real: data.plan_code,
+                    plan_limits: data.plan_limits,
+                    plan_features: data.plan_features,
+                    plan_code: data.plan_code // Legacy
+                };
+
+                setTenant(mappedTenant);
                 setError(null);
             } catch (err: any) {
                 console.error('Error fetching tenant:', err);

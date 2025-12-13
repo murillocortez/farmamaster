@@ -67,22 +67,23 @@ export const ProductDetails: React.FC = () => {
   };
 
   useEffect(() => {
-    if (id && tenant) {
+    if (id && tenant?.slug) {
       fetchProduct(id);
-      db.getSettings(tenant.id).then(setSettings);
+      db.getSettings(tenant.slug).then(setSettings);
       window.scrollTo(0, 0);
     }
-  }, [id, tenant]);
+  }, [id, tenant?.slug]);
 
   const fetchProduct = async (productId: string) => {
     setLoading(true);
     try {
-      const data = await db.getProduct(productId);
+      if (!tenant?.slug) return;
+      const data = await db.getProduct(tenant.slug, productId);
       setProduct(data);
 
       // Fetch related products (mock logic: fetch all and slice for now, ideally filter by category)
-      if (tenant) {
-        const allProducts = await db.getProducts(tenant.id);
+      if (tenant?.slug) {
+        const allProducts = await db.getProducts(tenant.slug);
         setRelatedProducts(allProducts.filter(p => p.id !== productId).slice(0, 4));
       }
     } catch (error) {

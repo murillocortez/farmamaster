@@ -114,11 +114,13 @@ export const Header: React.FC = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
+    if (!tenant?.slug) return;
+
     const fetchData = async () => {
       try {
         const [settingsData, productsData] = await Promise.all([
-          db.getSettings(),
-          db.getProducts()
+          db.getSettings(tenant.slug),
+          db.getProducts(tenant.slug)
         ]);
         setSettings(settingsData);
         setProducts(productsData);
@@ -138,7 +140,7 @@ export const Header: React.FC = () => {
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [tenant?.slug]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;

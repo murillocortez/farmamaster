@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { X, Check, AlertCircle } from 'lucide-react';
+import { useTenant } from '../context/TenantContext';
 import { useStore } from '../context/StoreContext';
 import { Button, Input } from './UIComponents';
 import { db } from '../services/dbService';
 
 export const LoginModal: React.FC = () => {
   const { isLoginModalOpen, setIsLoginModalOpen, login } = useStore();
+  const { tenant } = useTenant();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+
   const [step, setStep] = useState<'input' | 'confirm'>('input');
   const [loading, setLoading] = useState(false);
 
@@ -42,8 +45,9 @@ export const LoginModal: React.FC = () => {
     setLoading(true);
     try {
       if (step === 'input') {
+        if (!tenant?.slug) throw new Error('Store context missing');
         // Check if user exists
-        const existingUser = await db.checkCustomerByPhone(phone);
+        const existingUser = await db.checkCustomerByPhone(tenant.slug, phone);
 
         if (existingUser) {
           // User exists, login directly

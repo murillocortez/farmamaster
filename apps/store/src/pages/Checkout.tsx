@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
+import { useTenant } from '../context/TenantContext';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, MapPin, CreditCard, Bike, Store, DollarSign, Wallet, Crown,
@@ -12,6 +13,7 @@ import { CashbackWallet } from '../types';
 
 export const Checkout: React.FC = () => {
   const { cart, cartTotal, user, clearCart, updateProfile } = useStore();
+  const { tenant } = useTenant();
   const navigate = useNavigate();
 
   const [address, setAddress] = useState('');
@@ -39,8 +41,10 @@ export const Checkout: React.FC = () => {
       // Load Cashback
       cashbackService.getWallet(user.id!).then(setCashbackWallet);
     }
-    db.getSettings().then(setSettings);
-  }, [cart, navigate, user]);
+    if (tenant?.slug) {
+      db.getSettings(tenant.slug).then(setSettings);
+    }
+  }, [cart, navigate, user, tenant?.slug]);
 
   const handleSaveAddress = async () => {
     if (!address.trim()) {
@@ -111,11 +115,11 @@ export const Checkout: React.FC = () => {
         await updateProfile({ address: fullAddress });
       }
 
-      const { data: orderId, error } = await (supabase as any).rpc('create_order', {
-        p_customer_name: user.name,
-        p_customer_phone: user.phone,
-        p_address: fullAddress,
-        p_items: cart.map(item => {
+      if (!tenant?.slug) throw new Error('Store context missing');
+
+      const orderData = {
+        customerId: user.id,
+        items: cart.map(item => {
           const originalPrice = item.promotionalPrice || item.price;
           const discountedPrice = isVip ? originalPrice * (1 - vipDiscountPercent / 100) : originalPrice;
           return {
@@ -124,17 +128,21 @@ export const Checkout: React.FC = () => {
             price: discountedPrice
           };
         }),
-        p_payment_method: paymentMethod,
-        p_delivery_method: deliveryMethod,
-        p_delivery_fee: deliveryFee,
-        p_customer_id: user.id
-      });
+        total: total, // Note: dbService uses this for validation potentially or simply logs it? V2 RPC usually calculates total internally or verifies.
+        // Actually V2 RPC recalculates total from items usually, but let's pass it if RPC requires it.
+        // My previous dbService code passes p_total.
+        paymentMethod,
+        deliveryMethod,
+        address: fullAddress,
+        deliveryFee
+      };
 
-      if (error) throw error;
+      const orderId = await db.createOrder(tenant.slug, orderData);
 
       // Process Cashback Usage if selected
       if (useCashback && cashbackDiscount > 0 && user.id) {
-        await cashbackService.useCashback(orderId || null, user.id, cashbackDiscount);
+        // cast orderId to string if needed, depending on RPC return type
+        await cashbackService.useCashback(orderId as string, user.id, cashbackDiscount);
       }
 
       clearCart();

@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useTenant } from '../context/TenantContext';
 import { db } from '../services/dbService';
 import { ProductCard } from '../components/ProductCard';
 
 export const CategoryPage: React.FC = () => {
     const { categoryId } = useParams();
+    const { tenant } = useTenant();
     const [products, setProducts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -14,7 +16,9 @@ export const CategoryPage: React.FC = () => {
             try {
                 // Mock fetching products by category. 
                 // In real app, db.getProducts would filter or we'd filter in memory
-                const allProducts = await db.getProducts();
+                // In real app, db.getProducts would filter or we'd filter in memory
+                if (!tenant?.slug) return;
+                const allProducts = await db.getProducts(tenant.slug);
                 // Simple client-side filter for now
                 const filtered = allProducts.filter((p: any) =>
                     p.category?.toLowerCase() === categoryId?.toLowerCase() ||
@@ -27,8 +31,10 @@ export const CategoryPage: React.FC = () => {
                 setLoading(false);
             }
         };
-        loadProducts();
-    }, [categoryId]);
+        if (tenant?.slug) {
+            loadProducts();
+        }
+    }, [categoryId, tenant?.slug]);
 
     return (
         <div className="container mx-auto px-4 py-8">

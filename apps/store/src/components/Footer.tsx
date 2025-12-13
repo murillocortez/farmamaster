@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Phone, Mail, MapPin, Clock, Facebook, Instagram, Linkedin, Twitter, MessageCircle, Video, ArrowRight, CreditCard, Banknote } from 'lucide-react';
 import { db } from '../services/dbService';
 import { supabase } from '../services/supabase';
+import { useTenant } from '../context/TenantContext';
 import { Link } from 'react-router-dom';
 
 export const Footer: React.FC = () => {
@@ -9,9 +10,13 @@ export const Footer: React.FC = () => {
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
 
+    const { tenant } = useTenant();
+
     useEffect(() => {
-        db.getSettings().then(setSettings);
-    }, []);
+        if (tenant?.slug) {
+            db.getSettings(tenant.slug).then(setSettings);
+        }
+    }, [tenant?.slug]);
 
     if (!settings) return null;
 

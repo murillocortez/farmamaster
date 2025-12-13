@@ -1,6 +1,9 @@
 import { PLANS, MOCK_PAYMENTS, MOCK_ACCESS_LOGS } from '../constants';
 import { ApiResponse, Payment, AccessLog } from '../types';
 import { supabase } from './supabase';
+import { Database } from '../types/supabase';
+
+type TenantRow = Database['public']['Tables']['tenants']['Row'];
 
 // Helper to simulate network delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -30,7 +33,7 @@ const fetchTenantSafe = async (identifier: string) => {
   }
 
   const { data, error } = await query.maybeSingle();
-  return { data: data as any, error };
+  return { data: data as TenantRow | null, error };
 };
 
 /**
